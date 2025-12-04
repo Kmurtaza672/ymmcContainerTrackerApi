@@ -161,7 +161,13 @@
                             <td class="text-end text-nowrap">
                                 <a asp-page="./Edit" asp-route-id="@item.ItemNo" class="btn btn-sm btn-outline-primary">Edit</a>
                                 <a asp-page="./Details" asp-route-id="@item.ItemNo" class="btn btn-sm btn-outline-secondary">Details</a>
-                                <a asp-page="./Delete" asp-route-id="@item.ItemNo" class="btn btn-sm btn-outline-danger">Delete</a>
+                                <a asp-page="./Delete"
+                                   asp-route-id="@item.ItemNo"
+                                   class="btn btn-sm btn-outline-danger"
+                                   onclick="return confirm('Are you sure you want to delete Item No: @item.ItemNo ?');">
+                                    Delete
+                                </a>
+
                             </td>
                         </tr>
                     }
