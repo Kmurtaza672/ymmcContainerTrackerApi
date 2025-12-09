@@ -19,5 +19,5 @@ public class UserRole
     public string? DisplayName { get; set; } //firstname lastname
 
     [StringLength(100)]
-    public string? Email { get; set; }  //email@company.com
+    public string? Email { get; set; }  //kmurtaza@company.com
 }
