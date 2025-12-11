@@ -125,7 +125,16 @@
 <div class="d-flex justify-content-between align-items-center mt-4">
     <div>
         <h1 class="h3 mb-0">Returnable Containers</h1>
-        <div class="text-muted">View / add / edit / delete container records</div>
+        <div class="text-muted">
+            @if (Model.CanEdit)
+            {
+                <span>View / add / edit / delete container records</span>
+            }
+            else
+            {
+                <span>View container records (read-only)</span>
+            }
+                                </div>
     </div>
 
     <a asp-page="Create" class="btn btn-primary">+ Create New</a>

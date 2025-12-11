@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,34 +9,61 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using YmmcContainerTrackerApi.Data;
 using YmmcContainerTrackerApi.Models;
+using YmmcContainerTrackerApi.Services; // ✅ ADD THIS
 
 namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 {
     public class CreateModel : PageModel
     {
-        private readonly YmmcContainerTrackerApi.Data.AppDbContext _context;
+        private readonly AppDbContext _context;
+        private readonly IUserService _userService; // ✅ ADD THIS
+        private readonly ILogger<CreateModel> _logger; // ✅ ADD THIS
 
-        public CreateModel(YmmcContainerTrackerApi.Data.AppDbContext context)
+        // ✅ UPDATE CONSTRUCTOR
+        public CreateModel(AppDbContext context, IUserService userService, ILogger<CreateModel> logger)
         {
             _context = context;
+            _userService = userService;
+            _logger = logger;
         }
 
         public IActionResult OnGet()
         {
+            // ✅ CHECK CREATE PERMISSION
+            var currentUser = _userService.GetCurrentUsername();
+            var canEdit = _userService.CanEditAsync(currentUser).Result;
+
+            if (!canEdit)
+            {
+                _logger.LogWarning("❌ User {CurrentUser} attempted to access Create page without permission", currentUser);
+                TempData["ErrorMessage"] = "You do not have permission to create containers.";
+                return RedirectToPage("./Index");
+            }
+
             return Page();
         }
 
         [BindProperty]
         public ReturnableContainers ReturnableContainers { get; set; } = default!;
 
-        // To protect from overposting attacks, see https://aka.ms/RazorPagesCRUD
         public async Task<IActionResult> OnPostAsync()
         {
+            // ✅ CHECK CREATE PERMISSION (prevent direct POST attacks)
+            var currentUser = _userService.GetCurrentUsername();
+            var canEdit = await _userService.CanEditAsync(currentUser);
+
+            if (!canEdit)
+            {
+                _logger.LogWarning("❌ BLOCKED: User {CurrentUser} attempted to POST create without permission", currentUser);
+                TempData["ErrorMessage"] = "You do not have permission to create containers.";
+                return RedirectToPage("./Index");
+            }
+
             // Normalize key fields before validation
             string Normalize(string? s)
             {
                 var trimmed = (s ?? string.Empty).Trim();
-                if (trimmed.Length ==0) return string.Empty;
+                if (trimmed.Length == 0) return string.Empty;
                 // collapse internal whitespace to single space
                 trimmed = Regex.Replace(trimmed, "\\s+", " ");
                 // uppercase for consistency
@@ -73,6 +100,8 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             // Persist new entity
             _context.ReturnableContainers.Add(ReturnableContainers);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("✅ User {CurrentUser} created new container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
 
             return RedirectToPage("./Index");
         }

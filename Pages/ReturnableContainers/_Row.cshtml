@@ -1,70 +1,95 @@
-@model YmmcContainerTrackerApi.Models.ReturnableContainersRowModel
+﻿@model YmmcContainerTrackerApi.Models.ReturnableContainersRowModel
 @using System.Text.RegularExpressions
+@inject YmmcContainerTrackerApi.Services.IUserService UserService
 @{
- var item = Model.Item;
- var editing = Model.IsEditing;
- // Use a CSS-safe id for selectors (replace invalid chars)
- var safeKey = Regex.Replace(item.ItemNo ?? string.Empty, "[^A-Za-z0-9_-]", "_");
- var rowId = $"row-{safeKey}";
+    var item = Model.Item;
+    var editing = Model.IsEditing;
+    
+    // ✅ CHECK PERMISSIONS
+    var currentUser = UserService.GetCurrentUsername();
+    var canEdit = await UserService.CanEditAsync(currentUser);
+    var role = await UserService.GetUserRoleAsync(currentUser);
+    var canDelete = role == "Admin"; // Only Admins can delete
+    
+    // Use a CSS-safe id for selectors (replace invalid chars)
+    var safeKey = Regex.Replace(item.ItemNo ?? string.Empty, "[^A-Za-z0-9_-]", "_");
+    var rowId = $"row-{safeKey}";
 }
+
 @if (!editing)
 {
- <tr id="@rowId">
- <td class="text-end text-nowrap">
- <button class="btn btn-sm btn-outline-primary"
- hx-get="@Url.Page("./Index", "EditRow", new { id = item.ItemNo })"
- hx-target="#@rowId"
- hx-swap="outerHTML">Edit</button>
- <a asp-page="./Details" asp-route-id="@item.ItemNo" class="btn btn-sm btn-outline-secondary">Details</a>
- <a asp-page="./Delete"
- asp-route-id="@item.ItemNo"
- class="btn btn-sm btn-outline-danger"
- onclick="return confirm('Are you sure you want to delete Item No: @item.ItemNo ?');">Delete</a>
- </td>
- <td class="fw-semibold text-nowrap">@item.ItemNo</td>
- <td>@item.PackingCode</td>
- <td>@item.PrefixCode</td>
- <td class="text-nowrap">@item.ContainerNumber</td>
- <td class="text-end">@item.OutsideLength</td>
- <td class="text-end">@item.OutsideWidth</td>
- <td class="text-end">@item.OutsideHeight</td>
- <td class="text-end">@item.CollapsedHeight</td>
- <td class="text-end">@item.Weight</td>
- <td class="text-end">@item.PackQuantity</td>
- <td class="text-nowrap">@item.AlternateId</td>
- </tr>
+    <tr id="@rowId">
+        <td class="text-end text-nowrap">
+            @if (canEdit)
+            {
+                <!-- ✅ SHOW EDIT BUTTON FOR EDITORS AND ADMINS -->
+                <button class="btn btn-sm btn-outline-primary"
+                        hx-get="@Url.Page("./Index", "EditRow", new { id = item.ItemNo })"
+                        hx-target="#@rowId"
+                        hx-swap="outerHTML">Edit</button>
+            }
+            
+            <a asp-page="./Details" asp-route-id="@item.ItemNo" class="btn btn-sm btn-outline-secondary">Details</a>
+            
+            @if (canDelete)
+            {
+                <!-- ✅ ONLY SHOW DELETE BUTTON FOR ADMINS -->
+                <a asp-page="./Delete"
+                   asp-route-id="@item.ItemNo"
+                   class="btn btn-sm btn-outline-danger"
+                   onclick="return confirm('Are you sure you want to delete Item No: @item.ItemNo ?');">Delete</a>
+            }
+            
+            @if (!canEdit && !canDelete)
+            {
+                <!-- ✅ VIEWERS SEE READ-ONLY INDICATOR -->
+                <span class="badge bg-secondary">View Only</span>
+            }
+        </td>
+        <td class="fw-semibold text-nowrap">@item.ItemNo</td>
+        <td>@item.PackingCode</td>
+        <td>@item.PrefixCode</td>
+        <td class="text-nowrap">@item.ContainerNumber</td>
+        <td class="text-end">@item.OutsideLength</td>
+        <td class="text-end">@item.OutsideWidth</td>
+        <td class="text-end">@item.OutsideHeight</td>
+        <td class="text-end">@item.CollapsedHeight</td>
+        <td class="text-end">@item.Weight</td>
+        <td class="text-end">@item.PackQuantity</td>
+        <td class="text-nowrap">@item.AlternateId</td>
+    </tr>
 }
 else
 {
- <tr id="@rowId">
- <td class="text-end text-nowrap">
- @Html.AntiForgeryToken()
- <button class="btn btn-sm btn-outline-success"
- hx-post="@Url.Page("./Index", "SaveRow")"
- hx-target="#@rowId"
- hx-swap="outerHTML"
- hx-include="#@rowId input, #@rowId select, #@rowId textarea, #@rowId input[name='__RequestVerificationToken']">Save</button>
- <button class="btn btn-sm btn-outline-secondary"
- hx-get="@Url.Page("./Index", "EditRow", new { id = item.ItemNo })"
- hx-target="#@rowId"
- hx-swap="outerHTML">Cancel</button>
- </td>
- <td class="fw-semibold text-nowrap">@item.ItemNo<input type="hidden" name="ItemNo" value="@item.ItemNo" /></td>
- <td>
- <input class="form-control form-control-sm" name="PackingCode" value="@item.PackingCode" />
- </td>
- <td>
- <input class="form-control form-control-sm" name="PrefixCode" value="@item.PrefixCode" />
- </td>
- <td>
- <input class="form-control form-control-sm" name="ContainerNumber" value="@item.ContainerNumber" />
- </td>
- <td><input class="form-control form-control-sm" name="OutsideLength" value="@item.OutsideLength" /></td>
- <td><input class="form-control form-control-sm" name="OutsideWidth" value="@item.OutsideWidth" /></td>
- <td><input class="form-control form-control-sm" name="OutsideHeight" value="@item.OutsideHeight" /></td>
- <td><input class="form-control form-control-sm" name="CollapsedHeight" value="@item.CollapsedHeight" /></td>
- <td><input class="form-control form-control-sm" name="Weight" value="@item.Weight" /></td>
- <td><input class="form-control form-control-sm" name="PackQuantity" value="@item.PackQuantity" /></td>
- <td><input class="form-control form-control-sm" name="AlternateId" value="@item.AlternateId" /></td>
- </tr>
+    <tr id="@rowId">
+        <td class="text-end text-nowrap">
+            @Html.AntiForgeryToken()
+            <button class="btn btn-sm btn-outline-success"
+                    hx-post="@Url.Page("./Index", "SaveRow")"
+                    hx-target="#@rowId"
+                    hx-swap="outerHTML"
+                    hx-include="#@rowId input, #@rowId select, #@rowId textarea, #@rowId input[name='__RequestVerificationToken']">Save</button>
+            <button class="btn btn-sm btn-outline-secondary"
+                    hx-get="@Url.Page("./Index", "EditRow", new { id = item.ItemNo })"
+                    hx-target="#@rowId"
+                    hx-swap="outerHTML">Cancel</button>
+        </td>
+        <td class="fw-semibold text-nowrap">@item.ItemNo<input type="hidden" name="ItemNo" value="@item.ItemNo" /></td>
+        <td>
+            <input class="form-control form-control-sm" name="PackingCode" value="@item.PackingCode" />
+        </td>
+        <td>
+            <input class="form-control form-control-sm" name="PrefixCode" value="@item.PrefixCode" />
+        </td>
+        <td>
+            <input class="form-control form-control-sm" name="ContainerNumber" value="@item.ContainerNumber" />
+        </td>
+        <td><input class="form-control form-control-sm" name="OutsideLength" value="@item.OutsideLength" /></td>
+        <td><input class="form-control form-control-sm" name="OutsideWidth" value="@item.OutsideWidth" /></td>
+        <td><input class="form-control form-control-sm" name="OutsideHeight" value="@item.OutsideHeight" /></td>
+        <td><input class="form-control form-control-sm" name="CollapsedHeight" value="@item.CollapsedHeight" /></td>
+        <td><input class="form-control form-control-sm" name="Weight" value="@item.Weight" /></td>
+        <td><input class="form-control form-control-sm" name="PackQuantity" value="@item.PackQuantity" /></td>
+        <td><input class="form-control form-control-sm" name="AlternateId" value="@item.AlternateId" /></td>
+    </tr>
 }
