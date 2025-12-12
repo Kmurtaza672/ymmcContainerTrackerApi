@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using YmmcContainerTrackerApi.Data;
 using YmmcContainerTrackerApi.Models;
-using YmmcContainerTrackerApi.Services; 
+using YmmcContainerTrackerApi.Services;
 
 namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 {
@@ -17,8 +17,8 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
     {
         private readonly AppDbContext _context;
         private readonly IUserService _userService;
-      private readonly IAuditService _auditService;
-        private readonly ILogger<CreateModel> _logger; 
+        private readonly IAuditService _auditService;
+        private readonly ILogger<CreateModel> _logger;
 
         //UPDATE CONSTRUCTOR
         public CreateModel(AppDbContext context, IUserService userService, IAuditService auditService, ILogger<CreateModel> logger)
@@ -114,7 +114,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("✅ User {CurrentUser} created new container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
-     TempData["SuccessMessage"] = $"Container {ReturnableContainers.ItemNo} successfully created.";
+                TempData["SuccessMessage"] = $"Container {ReturnableContainers.ItemNo} successfully created.";
 
                 return RedirectToPage("./Index");
             }
@@ -122,10 +122,10 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 //  ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-       _logger.LogError(ex, "❌ Failed to create container {ItemNo}", ReturnableContainers.ItemNo);
-    TempData["ErrorMessage"] = "An error occurred while creating the container. Please try again.";
+                _logger.LogError(ex, "❌ Failed to create container {ItemNo}", ReturnableContainers.ItemNo);
+                TempData["ErrorMessage"] = "An error occurred while creating the container. Please try again.";
                 return Page();
-  }
+            }
         }
     }
 }

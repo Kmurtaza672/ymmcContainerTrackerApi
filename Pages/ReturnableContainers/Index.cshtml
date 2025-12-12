@@ -6,120 +6,63 @@
 @{
     ViewData["Title"] = "Returnable Containers";
 
-    // ========================================
-    // SEARCH QUERY PARAMETER EXTRACTION
-    // ========================================
-    // Extract the search query from URL query string parameter "q"
-    // Example: /ReturnableContainers?q=YPB-4424-25
-    // Trim() removes leading/trailing whitespace from user input
+    // Read query params
     var q = (Request.Query["q"].ToString() ?? "").Trim();
 
-    // ========================================
-    // PAGE SIZE CONFIGURATION
-    // ========================================
-    // Extract page size from URL query string parameter "pageSize"
-    // Default to 25 if not provided or invalid
+    // Page size (allowed: 25, 50, 100)
     int pageSize;
     if (!int.TryParse(Request.Query["pageSize"], out pageSize))
         pageSize = 25;
-
-    // Validate page size against allowed values (25, 50, 100)
-    // This prevents users from requesting excessive rows (e.g., ?pageSize=999999)
     var allowedSizes = new[] { 25, 50, 100 };
     if (!allowedSizes.Contains(pageSize))
         pageSize = 25;
 
-    // ========================================
-    // PAGE NUMBER EXTRACTION
-    // ========================================
-    // Extract current page number from URL query string parameter "p"
-    // Example: /ReturnableContainers?p=3 shows page 3
-    // Default to page 1 if not provided or invalid
-    // NOTE: Using "p" instead of "page" to avoid Razor Pages routing conflicts
+    // Page number
     int p;
     if (!int.TryParse(Request.Query["p"], out p))
         p = 1;
     if (p < 1) p = 1;
 
-    // ========================================
-    // MULTI-TERM SEARCH PARSING
-    // ========================================
-    // Split the search query on pipe (|) and tab characters
-    // This allows users to copy-paste from the table (e.g., "YPB-4424-25 | 3J")
-    // and still find results by searching for individual terms
-    //
-    // Example input: "YPB-4424-25 | 3J"
-    // Result: ["YPB-4424-25", "3J"]
-    //
-    // Benefits:
-    // - Users can paste entire row content from Excel/table
-    // - Each term is searched independently (OR logic)
-    // - Handles whitespace gracefully with Trim()
-    var searchTerms = string.IsNullOrWhiteSpace(q) 
-        ? new List<string>()  // Empty search = no filter
-        : q.Split(new[] { '|', '\t' }, StringSplitOptions.RemoveEmptyEntries)  // Split on | and tabs
-           .Select(t => t.Trim())                                               // Remove whitespace from each term
-           .Where(t => !string.IsNullOrWhiteSpace(t))                          // Exclude empty terms
+    // Parse multi-term search (split by | or tab)
+    var searchTerms = string.IsNullOrWhiteSpace(q)
+        ? new List<string>()
+        : q.Split(new[] { '|', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+           .Select(t => t.Trim())
+           .Where(t => !string.IsNullOrWhiteSpace(t))
            .ToList();
 
-    // ========================================
-    // MULTI-FIELD SEARCH FILTER
-    // ========================================
-    // Filter containers based on search terms
-    // Logic: If ANY search term matches ANY field, include the record
-    //
-    // Searchable fields:
-    // - ItemNo (e.g., "YPB-4424-25")
-    // - PackingCode (e.g., "3J")
-    // - PrefixCode (e.g., "YPB")
-    // - ContainerNumber (e.g., "4424-25")
-    // - AlternateId (custom identifiers)
-    //
-    // Features:
-    // - Case-insensitive search (OrdinalIgnoreCase)
-    // - Trims database values to handle trailing spaces
-    // - Uses .Contains() for partial matching (not exact match required)
-    //
-    // Example: Search "YPB | 3J" will find:
-    // - All records with ItemNo containing "YPB"
-    // - All records with PackingCode containing "3J"
+    // Filter: any term matches any field (case-insensitive, partial)
     var filtered = searchTerms.Count == 0
-        ? Model.ReturnableContainers.ToList()  // No search terms = show all
+        ? Model.ReturnableContainers.ToList()
         : Model.ReturnableContainers.Where(x =>
-            searchTerms.Any(term =>  // Check if ANY term matches...
-                (x.ItemNo ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||           // Item number
-                (x.PackingCode ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||     // Packing code
-                (x.PrefixCode ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||      // Prefix code
-                (x.ContainerNumber ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) || // Container number
-                (x.AlternateId ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase)        // Alternate ID
+            searchTerms.Any(term =>
+                (x.ItemNo ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (x.PackingCode ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (x.PrefixCode ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (x.ContainerNumber ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (x.AlternateId ?? "").Trim().Contains(term, StringComparison.OrdinalIgnoreCase)
             )
         ).ToList();
 
-    // ========================================
-    // PAGINATION CALCULATIONS
-    // ========================================
-    // Calculate total pages based on filtered results
+    // Pagination math
     var totalCount = filtered.Count;
     var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-    if (totalPages < 1) totalPages = 1;  // Always show at least 1 page
-    if (p > totalPages) p = totalPages;  // Prevent requesting page beyond last page
+    if (totalPages < 1) totalPages = 1;
+    if (p > totalPages) p = totalPages;
 
-    // Get the current page's records using Skip/Take
-    // Example: Page 2 with 25 rows per page → Skip(25).Take(25)
+    // Page slice
     var paged = filtered
-        .Skip((p - 1) * pageSize)  // Skip records from previous pages
-        .Take(pageSize)             // Take only the current page's records
+        .Skip((p - 1) * pageSize)
+        .Take(pageSize)
         .ToList();
 
-    
-    // PAGINATION 
-    
+    // Pagination window
     var start = Math.Max(1, p - 2);
-    var end = Math.Min(totalPages, p + 2);    
+    var end = Math.Min(totalPages, p + 2);
 
-    // Calculate row numbers for "Showing X - Y of Z" display
-    var fromRow = totalCount == 0 ? 0 : ((p - 1) * pageSize + 1);  // First row on current page
-    var toRow = Math.Min(p * pageSize, totalCount);                // Last row on current page
+    // Row range for display
+    var fromRow = totalCount == 0 ? 0 : ((p - 1) * pageSize + 1);
+    var toRow = Math.Min(p * pageSize, totalCount);
 }
 
 <div class="d-flex justify-content-between align-items-center mt-4">
@@ -134,7 +77,7 @@
             {
                 <span>View container records (read-only)</span>
             }
-                                </div>
+        </div>
     </div>
 
     <a asp-page="Create" class="btn btn-primary">+ Create New</a>
@@ -147,13 +90,7 @@
     <form method="get" class="d-flex flex-wrap gap-2 align-items-end flex-grow-1">
         <div style="min-width: 320px;">
             <label class="form-label mb-1">Search</label>
-            <!-- 
-                SEARCH INPUT:
-                - Supports multi-term search (separate with | or tab)
-                - Searches across: ItemNo, PackingCode, PrefixCode, ContainerNumber, AlternateId
-                - Case-insensitive partial matching
-                - Users can paste table row content (e.g., "YPB-4424-25 | 3J")
-            -->
+            <!-- Multi-term search: use | or tab; searches multiple fields -->
             <input name="q"
                    value="@q"
                    class="form-control"
@@ -170,8 +107,7 @@
             </select>
         </div>
 
-        <!-- Reset to first page when searching/changing pageSize -->
-        <!-- This prevents showing "page 10" when search results only have 1 page -->
+        <!-- Always reset to page 1 when applying filters -->
         <input type="hidden" name="p" value="1" />
 
         <div class="pb-1">
@@ -179,7 +115,7 @@
 
             @if (!string.IsNullOrWhiteSpace(q))
             {
-                <!-- Clear button: Resets search but preserves page size preference -->
+                <!-- Clear search, keep page size -->
                 <a asp-page="./Index"
                    asp-route-pageSize="@pageSize"
                    class="btn btn-outline-secondary">
@@ -195,7 +131,7 @@
     </div>
 </div>
 
-<!-- Scroll container (keeps horizontal scroll immediately) -->
+<!-- Table -->
 <div class="table-shell">
     <div class="table-responsive rc-table">
         <table class="table table-bordered table-striped table-hover align-middle mb-0">
@@ -237,14 +173,14 @@
     </div>
 </div>
 
-<!-- Pagination Controls -->
+<!-- Pagination -->
 <nav class="d-flex justify-content-between align-items-center mt-3">
     <div class="text-muted small">
         Showing <strong>@fromRow</strong> - <strong>@toRow</strong> of <strong>@totalCount</strong>
     </div>
 
     <ul class="pagination mb-0">
-        <!-- Previous Page Button -->
+        <!-- Prev -->
         <li class="page-item @(p > 1 ? "" : "disabled")">
             <a class="page-link"
                asp-page="./Index"
@@ -253,7 +189,7 @@
                asp-route-p="@(p - 1)">Prev</a>
         </li>
 
-        <!-- Show page 1 if not in current window -->
+        <!-- First page shortcut -->
         @if (start > 1)
         {
             <li class="page-item">
@@ -265,12 +201,11 @@
             </li>
             @if (start > 2)
             {
-                <!-- Ellipsis to indicate skipped pages -->
                 <li class="page-item disabled"><span class="page-link">...</span></li>
             }
         }
 
-        <!-- Page number buttons (current ± 2 pages) -->
+        <!-- Window around current page -->
         @for (var i = start; i <= end; i++)
         {
             <li class="page-item @(i == p ? "active" : "")">
@@ -282,12 +217,11 @@
             </li>
         }
 
-        <!-- Show last page if not in current window -->
+        <!-- Last page shortcut -->
         @if (end < totalPages)
         {
             @if (end < totalPages - 1)
             {
-                <!-- Ellipsis to indicate skipped pages -->
                 <li class="page-item disabled"><span class="page-link">...</span></li>
             }
             <li class="page-item">
@@ -299,7 +233,7 @@
             </li>
         }
 
-        <!-- Next Page Button -->
+        <!-- Next -->
         <li class="page-item @(p < totalPages ? "" : "disabled")">
             <a class="page-link"
                asp-page="./Index"
@@ -324,14 +258,14 @@
 
     .rc-table {
         max-height: calc(100vh - 390px);
-        overflow: auto; /* x + y scroll */
+        overflow: auto; /* both axes */
     }
 
-        .rc-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }
+    .rc-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
 
     .table td, .table th {
         padding: 0.75rem 0.9rem;
