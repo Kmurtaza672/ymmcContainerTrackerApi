@@ -10,7 +10,7 @@
             
             @if (!Model.HasAccess)
             {
-                <!-- ❌ ACCESS DENIED PAGE -->
+                <!-- ACCESS DENIED PAGE -->
                 <div class="card border-danger shadow-lg">
                     <div class="card-header bg-danger text-white text-center">
                         <h2 class="mb-0">
@@ -27,7 +27,7 @@
                             (<code>@Model.UserIdentity</code>) is not authorized.
                         </p>
                         
-                        <!-- ✅ SHOW SPECIFIC REASON -->
+                        <!-- SHOW SPECIFIC REASON -->
                         @if (!string.IsNullOrEmpty(Model.DenialReason))
                         {
                             <div class="alert alert-warning">
@@ -56,7 +56,7 @@
             }
             else
             {
-                <!-- ✅ ACCESS GRANTED - DASHBOARD -->
+                <!-- ACCESS GRANTED - DASHBOARD -->
                 <div class="card shadow-lg">
                     <div class="card-header bg-primary text-white">
                         <h3 class="mb-0">
@@ -153,66 +153,26 @@
 
                         </div>
 
-                        <!-- Permissions Summary -->
-                        <div class="card mt-4 bg-light">
-                            <div class="card-body">
-                                <h6 class="mb-3"><i class="bi bi-shield-check"></i> Your Permissions</h6>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <ul class="list-unstyled mb-0">
+                        <!-- PERMISSIONS SUMMARY - ONLY SHOWS GRANTED PERMISSIONS -->
+                        @if (Model.GrantedPermissions.Any())
+                        {
+                            <div class="card mt-4 bg-light">
+                                <div class="card-body">
+                                    <h6 class="mb-3">
+                                        <i class="bi bi-shield-check"></i> Your Permissions
+                                    </h6>
+                                    <ul class="list-unstyled mb-0">
+                                        @foreach (var permission in Model.GrantedPermissions)
+                                        {
                                             <li class="mb-2">
-                                                @if (Model.CanViewContainers)
-                                                {
-                                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                                }
-                                                else
-                                                {
-                                                    <i class="bi bi-x-circle-fill text-danger"></i>
-                                                }
-                                                View Containers
+                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                                @permission
                                             </li>
-                                            <li class="mb-2">
-                                                @if (Model.CanEditContainers)
-                                                {
-                                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                                }
-                                                else
-                                                {
-                                                    <i class="bi bi-x-circle-fill text-danger"></i>
-                                                }
-                                                Edit Containers
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <ul class="list-unstyled mb-0">
-                                            <li class="mb-2">
-                                                @if (Model.CanAccessMaintenance)
-                                                {
-                                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                                }
-                                                else
-                                                {
-                                                    <i class="bi bi-x-circle-fill text-danger"></i>
-                                                }
-                                                Access Maintenance
-                                            </li>
-                                            <li class="mb-2">
-                                                @if (Model.CanAccessReports)
-                                                {
-                                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                                }
-                                                else
-                                                {
-                                                    <i class="bi bi-x-circle-fill text-danger"></i>
-                                                }
-                                                View Reports
-                                            </li>
-                                        </ul>
-                                    </div>
+                                        }
+                                    </ul>
                                 </div>
                             </div>
-                        </div>
+                        }
 
                     </div>
                     <div class="card-footer text-muted text-center">
