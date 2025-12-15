@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using YmmcContainerTrackerApi.Data;
 using YmmcContainerTrackerApi.Models;
-using YmmcContainerTrackerApi.Services; 
+using YmmcContainerTrackerApi.Services;
 
 namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 {
@@ -17,10 +17,10 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
         private readonly AppDbContext _context;
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
-        private readonly ILogger<EditModel> _logger; 
+        private readonly ILogger<EditModel> _logger;
 
         public EditModel(
-            AppDbContext context, 
+            AppDbContext context,
             IUserService userService,
             IAuditService auditService,
             ILogger<EditModel> logger)
@@ -42,7 +42,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                _logger.LogWarning("❌ User {CurrentUser} attempted to access Edit page without permission", currentUser);
+                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to access Edit page without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to edit containers.";
                 return RedirectToPage("./Index");
             }
@@ -69,7 +69,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                _logger.LogWarning("❌ BLOCKED: User {CurrentUser} attempted to POST edit without permission", currentUser);
+                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to POST edit without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to edit containers.";
                 return RedirectToPage("./Index");
             }
@@ -106,7 +106,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 // COMMIT - Both update and audit log succeed together
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("✅ User {CurrentUser} edited container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
+                _logger.LogInformation("SUCCESS: User {CurrentUser} edited container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
                 TempData["SuccessMessage"] = $"Container {ReturnableContainers.ItemNo} successfully updated.";
 
                 return RedirectToPage("./Index");
@@ -136,7 +136,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 // ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "❌ Failed to edit container {ItemNo}", ReturnableContainers.ItemNo);
+                _logger.LogError(ex, "ERROR: Failed to edit container {ItemNo}", ReturnableContainers.ItemNo);
                 TempData["ErrorMessage"] = "An error occurred while updating the container. Please try again.";
                 return Page();
             }

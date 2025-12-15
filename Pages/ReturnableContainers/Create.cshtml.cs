@@ -20,7 +20,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
         private readonly IAuditService _auditService;
         private readonly ILogger<CreateModel> _logger;
 
-        //UPDATE CONSTRUCTOR
         public CreateModel(AppDbContext context, IUserService userService, IAuditService auditService, ILogger<CreateModel> logger)
         {
             _context = context;
@@ -29,15 +28,15 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             _logger = logger;
         }
 
-        public IActionResult OnGet()
+        public async Task<IActionResult> OnGetAsync()
         {
-            //CHECK CREATE PERMISSION
+            // CHECK CREATE PERMISSION
             var currentUser = _userService.GetCurrentUsername();
-            var canEdit = _userService.CanEditAsync(currentUser).Result;
+            var canEdit = await _userService.CanEditAsync(currentUser);
 
             if (!canEdit)
             {
-                _logger.LogWarning("❌ User {CurrentUser} attempted to access Create page without permission", currentUser);
+                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to access Create page without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to create containers.";
                 return RedirectToPage("./Index");
             }
@@ -50,13 +49,13 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
         public async Task<IActionResult> OnPostAsync()
         {
-            //CHECK CREATE PERMISSION (prevent direct POST attacks)
+            // CHECK CREATE PERMISSION (prevent direct POST attacks)
             var currentUser = _userService.GetCurrentUsername();
             var canEdit = await _userService.CanEditAsync(currentUser);
 
             if (!canEdit)
             {
-                _logger.LogWarning("❌ BLOCKED: User {CurrentUser} attempted to POST create without permission", currentUser);
+                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to POST create without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to create containers.";
                 return RedirectToPage("./Index");
             }
@@ -99,7 +98,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 return Page();
             }
 
-            //  START TRANSACTION - Ensure atomic operation
+            // START TRANSACTION - Ensure atomic operation
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -110,19 +109,19 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 // Log the CREATE action
                 await _auditService.LogCreateAsync(ReturnableContainers.ItemNo, ReturnableContainers, currentUser);
 
-                //  COMMIT - Both create and audit log succeed together
+                // COMMIT - Both create and audit log succeed together
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("✅ User {CurrentUser} created new container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
+                _logger.LogInformation("SUCCESS: User {CurrentUser} created new container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
                 TempData["SuccessMessage"] = $"Container {ReturnableContainers.ItemNo} successfully created.";
 
                 return RedirectToPage("./Index");
             }
             catch (Exception ex)
             {
-                //  ROLLBACK on any error - Nothing gets saved
+                // ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "❌ Failed to create container {ItemNo}", ReturnableContainers.ItemNo);
+                _logger.LogError(ex, "ERROR: Failed to create container {ItemNo}", ReturnableContainers.ItemNo);
                 TempData["ErrorMessage"] = "An error occurred while creating the container. Please try again.";
                 return Page();
             }

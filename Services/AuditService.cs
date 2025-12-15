@@ -44,11 +44,11 @@ public class AuditService : IAuditService
             _context.ContainerAuditLogs.Add(log);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("📝 Audit: {Username} CREATED container {ItemNo}", username, itemNo);
+            _logger.LogInformation("AUDIT: {Username} CREATED container {ItemNo}", username, itemNo);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to log CREATE action for {ItemNo}", itemNo);
+            _logger.LogError(ex, "ERROR: Failed to log CREATE action for {ItemNo}", itemNo);
         }
     }
 
@@ -76,12 +76,12 @@ public class AuditService : IAuditService
             _context.ContainerAuditLogs.Add(log);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("📝 Audit: {Username} UPDATED container {ItemNo} - Changed: {Fields}", 
+            _logger.LogInformation("AUDIT: {Username} UPDATED container {ItemNo} - Changed: {Fields}",
                 username, itemNo, log.ChangedFields);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to log UPDATE action for {ItemNo}", itemNo);
+            _logger.LogError(ex, "ERROR: Failed to log UPDATE action for {ItemNo}", itemNo);
         }
     }
 
@@ -105,11 +105,11 @@ public class AuditService : IAuditService
             _context.ContainerAuditLogs.Add(log);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("📝 Audit: {Username} DELETED container {ItemNo}", username, itemNo);
+            _logger.LogInformation("AUDIT: {Username} DELETED container {ItemNo}", username, itemNo);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to log DELETE action for {ItemNo}", itemNo);
+            _logger.LogError(ex, "ERROR: Failed to log DELETE action for {ItemNo}", itemNo);
         }
     }
 
@@ -132,11 +132,11 @@ public class AuditService : IAuditService
             _context.ContainerAuditLogs.Add(log);
             await _context.SaveChangesAsync();
 
-            _logger.LogDebug("📝 Audit: {Username} VIEWED container {ItemNo}", username, itemNo);
+            _logger.LogDebug("AUDIT: {Username} VIEWED container {ItemNo}", username, itemNo);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to log VIEW action for {ItemNo}", itemNo);
+            _logger.LogError(ex, "ERROR: Failed to log VIEW action for {ItemNo}", itemNo);
         }
     }
 

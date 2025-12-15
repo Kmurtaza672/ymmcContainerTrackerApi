@@ -39,7 +39,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (role != "Admin")
             {
-                _logger.LogWarning("❌ User {CurrentUser} with role {Role} attempted to delete without permission", currentUser, role);
+                _logger.LogWarning("BLOCKED: User {CurrentUser} with role {Role} attempted to delete without permission", currentUser, role);
                 TempData["ErrorMessage"] = "You do not have permission to delete containers. Only Admins can delete.";
                 return RedirectToPage("./Index");
             }
@@ -68,7 +68,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (role != "Admin")
             {
-                _logger.LogWarning("❌ BLOCKED: User {CurrentUser} with role {Role} attempted to POST delete", currentUser, role);
+                _logger.LogWarning("BLOCKED: User {CurrentUser} with role {Role} attempted to POST delete", currentUser, role);
                 TempData["ErrorMessage"] = "You do not have permission to delete containers.";
                 return RedirectToPage("./Index");
             }
@@ -101,14 +101,14 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 // COMMIT - Both audit log and delete succeed together
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("✅ Admin {CurrentUser} deleted container {ItemNo}", currentUser, id);
+                _logger.LogInformation("SUCCESS: Admin {CurrentUser} deleted container {ItemNo}", currentUser, id);
                 TempData["SuccessMessage"] = $"Container {id} successfully deleted.";
             }
             catch (Exception ex)
             {
                 // ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "❌ Failed to delete container {ItemNo}", id);
+                _logger.LogError(ex, "ERROR: Failed to delete container {ItemNo}", id);
                 TempData["ErrorMessage"] = "An error occurred while deleting the container. Please try again.";
             }
 
