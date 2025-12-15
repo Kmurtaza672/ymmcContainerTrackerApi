@@ -16,12 +16,12 @@ namespace YmmcContainerTrackerApi
 
             // LDAP Infrastructure
             builder.Services.AddHttpContextAccessor();
-            builder.Services.AddScoped<ILdapService, LdapService>(); // ✅ ADD THIS
+            builder.Services.AddScoped<ILdapService, LdapService>(); 
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IAuditService, AuditService>();
 
             // ✅ Windows Authentication
-            builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme); // ✅ Fixed typo (was IISDefault)
+            builder.Services.AddAuthentication(IISDefaults.AuthenticationScheme); 
             builder.Services.AddAuthorization();
 
             // Razor Pages (UI)
@@ -55,7 +55,7 @@ namespace YmmcContainerTrackerApi
             app.UseStaticFiles();
             app.UseRouting();
 
-            // ✅ Authentication happens here automatically
+            //  Authentication happens here automatically
             app.UseAuthentication();
             app.UseAuthorization();
 
