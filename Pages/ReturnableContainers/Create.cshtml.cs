@@ -87,7 +87,32 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 return Page();
             }
 
-            // Check for duplicates (by normalized ItemNo)
+            // Extract digits from ItemNo
+            string ExtractDigits(string input)
+            {
+                return new string(input.Where(char.IsDigit).ToArray());
+            }
+
+            var newItemDigits = ExtractDigits(ReturnableContainers.ItemNo);
+
+            // Check if digits already exist in any ItemNo (excluding current record during edit)
+            var allContainers = await _context.ReturnableContainers
+                .AsNoTracking()
+                .Select(rc => rc.ItemNo)
+                .ToListAsync();
+
+            var duplicateDigits = allContainers
+                .Select(itemNo => new { ItemNo = itemNo, Digits = ExtractDigits(itemNo) })
+                .FirstOrDefault(x => x.Digits == newItemDigits);
+
+            if (duplicateDigits != null)
+            {
+                ModelState.AddModelError("ReturnableContainers.ItemNo", 
+                    $"The numeric part '{newItemDigits}' already exists in Item No '{duplicateDigits.ItemNo}'.");
+                return Page();
+            }
+
+            // Check for exact duplicates (by normalized ItemNo) - Keep existing check
             var exists = await _context.ReturnableContainers
                 .AsNoTracking()
                 .AnyAsync(rc => rc.ItemNo == ReturnableContainers.ItemNo);

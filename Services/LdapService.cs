@@ -41,14 +41,14 @@ public class LdapService : ILdapService
 
         try
         {
-            _logger.LogInformation("🔍 Checking if user '{Username}' is in AD group '{GroupName}'", username, groupName);
+            _logger.LogInformation(" Checking if user '{Username}' is in AD group '{GroupName}'", username, groupName);
 
             using var context = new PrincipalContext(ContextType.Domain);
             using var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, username);
             
             if (user == null)
             {
-                _logger.LogWarning("❌ User '{Username}' not found in Active Directory", username);
+                _logger.LogWarning(" User '{Username}' not found in Active Directory", username);
                 return false;
             }
 
@@ -56,7 +56,7 @@ public class LdapService : ILdapService
             
             if (group == null)
             {
-                _logger.LogWarning("❌ Group '{GroupName}' not found in Active Directory", groupName);
+                _logger.LogWarning(" Group '{GroupName}' not found in Active Directory", groupName);
                 return false;
             }
 
@@ -64,18 +64,18 @@ public class LdapService : ILdapService
             
             if (isMember)
             {
-                _logger.LogInformation("✅ User '{Username}' IS a member of '{GroupName}'", username, groupName);
+                _logger.LogInformation(" User '{Username}' IS a member of '{GroupName}'", username, groupName);
             }
             else
             {
-                _logger.LogWarning("❌ User '{Username}' is NOT a member of '{GroupName}'", username, groupName);
+                _logger.LogWarning(" User '{Username}' is NOT a member of '{GroupName}'", username, groupName);
             }
 
             return isMember;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Error checking AD group membership for user '{Username}' in group '{GroupName}'", username, groupName);
+            _logger.LogError(ex, " Error checking AD group membership for user '{Username}' in group '{GroupName}'", username, groupName);
             return false;
         }
     }
@@ -92,14 +92,14 @@ public class LdapService : ILdapService
 
         try
         {
-            _logger.LogInformation("🔍 Retrieving AD info for user '{Username}'", username);
+            _logger.LogInformation(" Retrieving AD info for user '{Username}'", username);
 
             using var context = new PrincipalContext(ContextType.Domain);
             using var user = UserPrincipal.FindByIdentity(context, IdentityType.SamAccountName, username);
             
             if (user == null)
             {
-                _logger.LogWarning("❌ User '{Username}' not found in Active Directory", username);
+                _logger.LogWarning(" User '{Username}' not found in Active Directory", username);
                 return null;
             }
 
@@ -114,13 +114,13 @@ public class LdapService : ILdapService
                 IsEnabled = user.Enabled ?? false
             };
 
-            _logger.LogInformation("✅ AD info retrieved for '{Username}': {DisplayName}", username, userInfo.DisplayName);
+            _logger.LogInformation(" AD info retrieved for '{Username}': {DisplayName}", username, userInfo.DisplayName);
 
             return userInfo;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Error retrieving AD user info for '{Username}'", username);
+            _logger.LogError(ex, " Error retrieving AD user info for '{Username}'", username);
             return null;
         }
     }
@@ -135,7 +135,7 @@ public class LdapService : ILdapService
         // If no group is configured, allow all authenticated users
         if (string.IsNullOrEmpty(requiredGroup))
         {
-            _logger.LogInformation("ℹ️ No AD group requirement configured - allowing user '{Username}'", username);
+            _logger.LogInformation(" No AD group requirement configured - allowing user '{Username}'", username);
             return true;
         }
 
