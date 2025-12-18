@@ -23,16 +23,11 @@ public class UserService : IUserService
     public string GetCurrentUserIdentity()
     {
         // When Windows Auth is enabled, this gets "DOMAIN\username"
-        // For development/testing, return a default user
         var identity = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
-        
-        if (string.IsNullOrEmpty(identity))
-        {
-            // Return development user when not authenticated
-            return _configuration.GetValue("Authentication:DevelopmentUser", "DEV\\testuser");
-        }
 
-        return identity;
+
+
+        return identity ?? string.Empty;
     }
 
     public string GetCurrentUsername()
