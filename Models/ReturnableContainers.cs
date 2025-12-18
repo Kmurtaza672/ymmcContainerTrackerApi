@@ -22,21 +22,27 @@ public partial class ReturnableContainers
 
     // Dimension fields with unit labels
     [Display(Name = "Outside Length (inches)")]
+    [Range(0.01, 9999.99, ErrorMessage = "Outside Length must be between 0.01 and 9999.99 inches")]
     public decimal? OutsideLength { get; set; }
 
     [Display(Name = "Outside Width (inches)")]
+    [Range(0.01, 9999.99, ErrorMessage = "Outside Width must be between 0.01 and 9999.99 inches")]
     public decimal? OutsideWidth { get; set; }
 
     [Display(Name = "Outside Height (inches)")]
+    [Range(0.01, 9999.99, ErrorMessage = "Outside Height must be between 0.01 and 9999.99 inches")]
     public decimal? OutsideHeight { get; set; }
 
     [Display(Name = "Collapsed Height (inches)")]
+    [Range(0.01, 9999.99, ErrorMessage = "Collapsed Height must be between 0.01 and 9999.99 inches")]
     public decimal? CollapsedHeight { get; set; }
 
     [Display(Name = "Weight (lbs)")]
+    [Range(0.01, 99999.99, ErrorMessage = "Weight must be between 0.01 and 99999.99 lbs")]
     public decimal? Weight { get; set; }
 
     [Display(Name = "Pack Quantity")]
+    [Range(1, 99999, ErrorMessage = "Pack Quantity must be between 1 and 99999")]
     public int? PackQuantity { get; set; }
 
     [StringLength(15, ErrorMessage = "Alternate ID cannot exceed 15 characters")]
