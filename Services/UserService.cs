@@ -25,8 +25,6 @@ public class UserService : IUserService
         // When Windows Auth is enabled, this gets "DOMAIN\username"
         var identity = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
 
-
-
         return identity ?? string.Empty;
     }
 
