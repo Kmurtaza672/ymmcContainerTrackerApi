@@ -67,13 +67,20 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 if (trimmed.Length == 0) return string.Empty;
                 // collapse internal whitespace to single space
                 trimmed = Regex.Replace(trimmed, "\\s+", " ");
-                // uppercase for consistency
+                // uppercase for consistency (ItemNo must be uppercase)
                 return trimmed.ToUpperInvariant();
             }
 
             ReturnableContainers.ItemNo = Normalize(ReturnableContainers.ItemNo);
             ReturnableContainers.PackingCode = Normalize(ReturnableContainers.PackingCode);
             ReturnableContainers.PrefixCode = Normalize(ReturnableContainers.PrefixCode);
+
+            //  normalized ItemNo to uppercase
+            ModelState.Remove("ReturnableContainers.ItemNo");
+            if (!TryValidateModel(ReturnableContainers, "ReturnableContainers"))
+            {
+                return Page();
+            }
 
             if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
                 ModelState.AddModelError("ReturnableContainers.ItemNo", "Please add the column [Item_No].");
@@ -87,32 +94,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 return Page();
             }
 
-            // Extract digits from ItemNo
-            string ExtractDigits(string input)
-            {
-                return new string(input.Where(char.IsDigit).ToArray());
-            }
-
-            var newItemDigits = ExtractDigits(ReturnableContainers.ItemNo);
-
-            // Check if digits already exist in any ItemNo (excluding current record during edit)
-            var allContainers = await _context.ReturnableContainers
-                .AsNoTracking()
-                .Select(rc => rc.ItemNo)
-                .ToListAsync();
-
-            var duplicateDigits = allContainers
-                .Select(itemNo => new { ItemNo = itemNo, Digits = ExtractDigits(itemNo) })
-                .FirstOrDefault(x => x.Digits == newItemDigits);
-
-            if (duplicateDigits != null)
-            {
-                ModelState.AddModelError("ReturnableContainers.ItemNo", 
-                    $"The numeric part '{newItemDigits}' already exists in Item No '{duplicateDigits.ItemNo}'.");
-                return Page();
-            }
-
-            // Check for exact duplicates (by normalized ItemNo) - Keep existing check
             var exists = await _context.ReturnableContainers
                 .AsNoTracking()
                 .AnyAsync(rc => rc.ItemNo == ReturnableContainers.ItemNo);
