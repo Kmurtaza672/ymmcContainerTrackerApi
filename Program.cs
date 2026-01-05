@@ -59,7 +59,7 @@ namespace YmmcContainerTrackerApi
             var requiredGroup = builder.Configuration.GetValue<string>("Authentication:RequiredAdGroup");
 
             logger.LogInformation("Authentication Enabled: {AuthEnabled}", authEnabled);
-            logger.LogInformation("AD Domain: {Domain}", domain ?? "NUll");
+            logger.LogInformation("AD Domain: {Domain}", domain ?? "NULL");
             logger.LogInformation("LDAP Path: {LdapPath}", ldapPath ?? "NULL");
             logger.LogInformation("Required AD group: {Group}", requiredGroup ?? "NULL");
             
