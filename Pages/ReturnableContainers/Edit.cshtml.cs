@@ -76,6 +76,25 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 return RedirectToPage("./Index");
             }
 
+            // Validate BEFORE normalization to catch empty values early
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
+            {
+                ModelState.AddModelError("ReturnableContainers.ItemNo", "Item No is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PackingCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PackingCode", "Packing Code is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PrefixCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PrefixCode", "Prefix Code is required.");
+                return Page();
+            }
+
             // Normalize standard fields (uppercase for consistency)
             string Normalize(string? value)
             {
