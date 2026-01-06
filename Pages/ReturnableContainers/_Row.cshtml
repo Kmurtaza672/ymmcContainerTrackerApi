@@ -4,21 +4,24 @@
 @{
     var item = Model.Item;
     var editing = Model.IsEditing;
+    var errorMessage = Model.ErrorMessage;
     
     //CHECK PERMISSIONS
     var currentUser = UserService.GetCurrentUsername();
     var canEdit = await UserService.CanEditAsync(currentUser);
     var role = await UserService.GetUserRoleAsync(currentUser);
-    var canDelete = role == "Admin"; // Only Admins can delete
+    var canDelete = role == "Admin"; 
     
-    // Use a CSS-safe id for selectors (replace invalid chars)
-    var safeKey = Regex.Replace(item.ItemNo ?? string.Empty, "[^A-Za-z0-9_-]", "_");
+    // IMPORTANT: Use the ORIGINAL ItemNo for row ID (from Model, not from item.ItemNo after edit)
+    // This ensures the row ID remains stable even when validation fails with modified ItemNo
+    var originalItemNo = Model.OriginalItemNo ?? item.ItemNo ?? string.Empty;
+    var safeKey = Regex.Replace(originalItemNo, "[^A-Za-z0-9_-]", "_");
     var rowId = $"row-{safeKey}";
 }
 
 @if (!editing)
 {
-    <tr id="@rowId">
+    <tr id="@rowId" data-original-itemno="@item.ItemNo">
         <td class="text-end text-nowrap">
             @if (canEdit)
             {
@@ -61,29 +64,41 @@
 }
 else
 {
+    <!-- KEEP THE SAME rowId from view mode - use OriginalItemNo to ensure stability -->
     <tr id="@rowId">
         <td class="text-end text-nowrap">
             @Html.AntiForgeryToken()
+            <!-- Store the ORIGINAL ItemNo in a hidden field for Cancel functionality -->
+            <input type="hidden" id="@(rowId)_originalId" value="@originalItemNo" />
+            
             <button class="btn btn-sm btn-outline-success"
                     hx-post="@Url.Page("./Index", "SaveRow")"
                     hx-target="#@rowId"
                     hx-swap="outerHTML"
                     hx-include="#@rowId input, #@rowId select, #@rowId textarea, #@rowId input[name='__RequestVerificationToken']">Save</button>
             <button class="btn btn-sm btn-outline-secondary"
-                    hx-get="@Url.Page("./Index", "EditRow", new { id = item.ItemNo, isEditing = false })"
+                    hx-get="@Url.Page("./Index", "CancelEdit")"
                     hx-target="#@rowId"
-                    hx-swap="outerHTML">Cancel</button>
+                    hx-swap="outerHTML"
+                    hx-vals='js:{originalId: document.getElementById("@(rowId)_originalId").value}'>Cancel</button>
         </td>
         
         <!-- EDITABLE ItemNo with Original stored as hidden field -->
         <td class="fw-semibold text-nowrap">
-            <input class="form-control form-control-sm" 
+            <input class="form-control form-control-sm @(!string.IsNullOrEmpty(errorMessage) ? "is-invalid" : "")" 
                    name="ItemNo" 
                    value="@item.ItemNo" 
                    maxlength="15"
+                   required
                    placeholder="YPT-2415-07" 
                    title="Format: YPT-2415-07, YPB-4845-34, YPC-10006, YPP-48x45" />
-            <input type="hidden" name="OriginalItemNo" value="@item.ItemNo" />
+            <input type="hidden" name="OriginalItemNo" value="@originalItemNo" />
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="invalid-feedback d-block">
+                    <strong>@errorMessage</strong>
+                </div>
+            }
         </td>
         
         <td>

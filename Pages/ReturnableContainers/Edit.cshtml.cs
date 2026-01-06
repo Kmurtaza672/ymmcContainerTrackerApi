@@ -77,9 +77,9 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             }
 
             // Normalize standard fields (uppercase for consistency)
-            string Normalize(string? s)
+            string Normalize(string? value)
             {
-                var trimmed = (s ?? string.Empty).Trim();
+                var trimmed = (value ?? string.Empty).Trim();
                 if (trimmed.Length == 0) return string.Empty;
                 trimmed = Regex.Replace(trimmed, "\\s+", " ");
                 return trimmed.ToUpperInvariant();

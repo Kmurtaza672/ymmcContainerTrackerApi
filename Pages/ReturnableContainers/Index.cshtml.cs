@@ -64,15 +64,15 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 // Return read-only row
                 var item = await _context.ReturnableContainers.AsNoTracking().FirstOrDefaultAsync(x => x.ItemNo == id);
-                return Partial("_Row", new ReturnableContainersRowModel { Item = item ?? new ReturnableContainers { ItemNo = id }, IsEditing = false });
+                return Partial("_Row", new ReturnableContainersRowModel { Item = item ?? new ReturnableContainers { ItemNo = id }, IsEditing = false, OriginalItemNo = id });
             }
 
             var editItem = await _context.ReturnableContainers.AsNoTracking().FirstOrDefaultAsync(x => x.ItemNo == id);
             if (editItem == null)
             {
-                return Partial("_Row", new ReturnableContainersRowModel { Item = new ReturnableContainers { ItemNo = id }, IsEditing = false });
+                return Partial("_Row", new ReturnableContainersRowModel { Item = new ReturnableContainers { ItemNo = id }, IsEditing = false, OriginalItemNo = id });
             }
-            return Partial("_Row", new ReturnableContainersRowModel { Item = editItem, IsEditing = isEditing });
+            return Partial("_Row", new ReturnableContainersRowModel { Item = editItem, IsEditing = isEditing, OriginalItemNo = editItem.ItemNo });
         }
 
         // POST: save inline edit with ItemNo change support
@@ -83,15 +83,18 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                // Return read-only row (block the save)
                 var existingItem = await _context.ReturnableContainers.AsNoTracking().FirstOrDefaultAsync(x => x.ItemNo == OriginalItemNo);
-                return Partial("_Row", new ReturnableContainersRowModel { Item = existingItem ?? item, IsEditing = false });
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = existingItem ?? item, 
+                    IsEditing = false,
+                    OriginalItemNo = OriginalItemNo 
+                });
             }
 
-            // Normalize standard fields (uppercase for consistency)
-            string Normalize(string? s)
+            string Normalize(string? value)
             {
-                var trimmed = (s ?? string.Empty).Trim();
+                var trimmed = (value ?? string.Empty).Trim();
                 if (trimmed.Length == 0) return string.Empty;
                 trimmed = Regex.Replace(trimmed, "\\s+", " ");
                 return trimmed.ToUpperInvariant();
@@ -117,44 +120,85 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             item.ContainerNumber = (item.ContainerNumber ?? string.Empty).Trim();
             item.AlternateId = (item.AlternateId ?? string.Empty).Trim();
 
-            // Validate required fields
-            if (string.IsNullOrWhiteSpace(item.ItemNo) || 
-                string.IsNullOrWhiteSpace(item.PackingCode) || 
-                string.IsNullOrWhiteSpace(item.PrefixCode))
+            // Validate required fields with specific error messages
+            if (string.IsNullOrWhiteSpace(item.ItemNo))
             {
-                return Partial("_Row", new ReturnableContainersRowModel { Item = item, IsEditing = true });
+                // Store original ItemNo in the item for cancel functionality
+                item.ItemNo = OriginalItemNo;
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = item, 
+                    IsEditing = true,
+                    ErrorMessage = "Item No is required and cannot be empty.",
+                    OriginalItemNo = OriginalItemNo
+                });
             }
 
-            // Validate ItemNo format
+            if (string.IsNullOrWhiteSpace(item.PackingCode))
+            {
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = item, 
+                    IsEditing = true,
+                    ErrorMessage = "Packing Code is required.",
+                    OriginalItemNo = OriginalItemNo  
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(item.PrefixCode))
+            {
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = item, 
+                    IsEditing = true,
+                    ErrorMessage = "Prefix Code is required.",
+                    OriginalItemNo = OriginalItemNo  
+                });
+            }
+
             var itemNoRegex = new Regex(@"^[A-Z]{3}-[A-Za-z0-9]+(?:[-xX][A-Za-z0-9]+)*$");
             if (!itemNoRegex.IsMatch(item.ItemNo))
             {
-                return Partial("_Row", new ReturnableContainersRowModel { Item = item, IsEditing = true });
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = item, 
+                    IsEditing = true,
+                    ErrorMessage = "Item No must start with 3 uppercase letters. Examples: YPT-2415-07, YPB-4845-34",
+                    OriginalItemNo = OriginalItemNo  
+                });
             }
 
             var existing = await _context.ReturnableContainers.FirstOrDefaultAsync(x => x.ItemNo == OriginalItemNo);
             if (existing == null)
             {
-                return Partial("_Row", new ReturnableContainersRowModel { Item = item, IsEditing = false });
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = item, 
+                    IsEditing = false,
+                    OriginalItemNo = OriginalItemNo
+                });
             }
 
-            // Check if ItemNo was changed
             bool itemNoChanged = !string.Equals(OriginalItemNo, item.ItemNo, StringComparison.OrdinalIgnoreCase);
 
             if (itemNoChanged)
             {
-                // Check if new ItemNo already exists (prevent duplicates)
                 var exists = await _context.ReturnableContainers
                     .AsNoTracking()
                     .AnyAsync(rc => rc.ItemNo.ToUpper() == item.ItemNo.ToUpper());
 
                 if (exists)
                 {
-                    return Partial("_Row", new ReturnableContainersRowModel { Item = item, IsEditing = true });
+                    return Partial("_Row", new ReturnableContainersRowModel 
+                    { 
+                        Item = item, 
+                        IsEditing = true,
+                        ErrorMessage = "This Item No already exists. Please use a different Item No.",
+                        OriginalItemNo = OriginalItemNo  
+                    });
                 }
             }
 
-            // Create a copy of old values BEFORE making changes
             var oldContainer = new ReturnableContainers
             {
                 ItemNo = existing.ItemNo,
@@ -170,7 +214,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 AlternateId = existing.AlternateId
             };
 
-            // START TRANSACTION - Ensure atomic operation
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -201,13 +244,15 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
                     _context.ReturnableContainers.Add(newContainer);
                     await _context.SaveChangesAsync();
-
-                    // Log the ItemNo change as an update
                     await _auditService.LogUpdateAsync(newContainer.ItemNo, oldContainer, newContainer, currentUser);
-
                     await transaction.CommitAsync();
 
-                    return Partial("_Row", new ReturnableContainersRowModel { Item = newContainer, IsEditing = false });
+                    return Partial("_Row", new ReturnableContainersRowModel 
+                    { 
+                        Item = newContainer, 
+                        IsEditing = false,
+                        OriginalItemNo = newContainer.ItemNo  // New ItemNo becomes the original
+                    });
                 }
                 else
                 {
@@ -224,24 +269,66 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                     existing.AlternateId = item.AlternateId;
 
                     await _context.SaveChangesAsync();
-
-                    // Log the UPDATE action with old and new values
                     await _auditService.LogUpdateAsync(item.ItemNo, oldContainer, existing, currentUser);
-
-                    // COMMIT - Both update and audit log succeed together
                     await transaction.CommitAsync();
 
-                    return Partial("_Row", new ReturnableContainersRowModel { Item = existing, IsEditing = false });
+                    return Partial("_Row", new ReturnableContainersRowModel 
+                    { 
+                        Item = existing, 
+                        IsEditing = false,
+                        OriginalItemNo = existing.ItemNo  // Add this
+                    });
                 }
             }
             catch (Exception)
             {
-                // ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-
-                // Return the item in edit mode so user can try again
-                return Partial("_Row", new ReturnableContainersRowModel { Item = item, IsEditing = true });
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = item, 
+                    IsEditing = true,
+                    ErrorMessage = "An error occurred while saving. Please try again.",
+                    OriginalItemNo = OriginalItemNo
+                });
             }
+        }
+
+        // GET handler for Cancel button - reads originalId from query or form
+        public async Task<PartialViewResult> OnGetCancelEditAsync([FromQuery] string? originalId)
+        {
+            // Use the original ItemNo from hidden field
+            if (string.IsNullOrWhiteSpace(originalId))
+            {
+                // If originalId is empty, return an error state
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = new ReturnableContainers(), 
+                    IsEditing = false,
+                    ErrorMessage = "Unable to cancel: Original Item No not found."
+                });
+            }
+
+            var item = await _context.ReturnableContainers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ItemNo == originalId);
+
+            if (item == null)
+            {
+                // Item doesn't exist
+                return Partial("_Row", new ReturnableContainersRowModel 
+                { 
+                    Item = new ReturnableContainers { ItemNo = originalId }, 
+                    IsEditing = false,
+                    ErrorMessage = $"Container '{originalId}' not found in database."
+                });
+            }
+
+            // Successfully return the original row in view mode
+            return Partial("_Row", new ReturnableContainersRowModel 
+            { 
+                Item = item, 
+                IsEditing = false 
+            });
         }
     }
 }
