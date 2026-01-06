@@ -12,7 +12,7 @@
     var role = await UserService.GetUserRoleAsync(currentUser);
     var canDelete = role == "Admin"; 
     
-    // IMPORTANT: Use the ORIGINAL ItemNo for row ID (from Model, not from item.ItemNo after edit)
+    // Use the ORIGINAL ItemNo for row ID (from Model, not from item.ItemNo after edit)
     // This ensures the row ID remains stable even when validation fails with modified ItemNo
     var originalItemNo = Model.OriginalItemNo ?? item.ItemNo ?? string.Empty;
     var safeKey = Regex.Replace(originalItemNo, "[^A-Za-z0-9_-]", "_");

@@ -80,6 +80,26 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 return prefix + rest;
             }
 
+            // Validate BEFORE normalization to catch empty values early
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
+            {
+                ModelState.AddModelError("ReturnableContainers.ItemNo", "Item No is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PackingCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PackingCode", "Packing Code is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PrefixCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PrefixCode", "Prefix Code is required.");
+                return Page();
+            }
+
+            // Now normalize the validated inputs
             ReturnableContainers.ItemNo = NormalizeItemNo(ReturnableContainers.ItemNo);
             ReturnableContainers.PackingCode = Normalize(ReturnableContainers.PackingCode);
             ReturnableContainers.PrefixCode = Normalize(ReturnableContainers.PrefixCode);
@@ -90,13 +110,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 return Page();
             }
-
-            if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
-                ModelState.AddModelError("ReturnableContainers.ItemNo", "Please add the column [Item_No].");
-            if (string.IsNullOrWhiteSpace(ReturnableContainers.PackingCode))
-                ModelState.AddModelError("ReturnableContainers.PackingCode", "Please add the column [Packing_Code].");
-            if (string.IsNullOrWhiteSpace(ReturnableContainers.PrefixCode))
-                ModelState.AddModelError("ReturnableContainers.PrefixCode", "Please add the column [Prefix_Code].");
 
             if (!ModelState.IsValid)
             {
