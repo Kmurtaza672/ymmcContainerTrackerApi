@@ -11,9 +11,11 @@ public partial class ReturnableContainers
         ErrorMessage = "Item No must start with 3 uppercase letters. Examples: YPT-2415-07, YPB-4845-34, YPC-10006, YPP-48x45")]
     public string ItemNo { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Packing Code is required")]
     [StringLength(15, ErrorMessage = "Packing Code cannot exceed 15 characters")]
     public string? PackingCode { get; set; }
 
+    [Required(ErrorMessage = "Prefix Code is required")]
     [StringLength(15, ErrorMessage = "Prefix Code cannot exceed 15 characters")]
     public string? PrefixCode { get; set; }
 
