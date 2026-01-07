@@ -4,21 +4,24 @@
 @{
     var item = Model.Item;
     var editing = Model.IsEditing;
+    var errorMessage = Model.ErrorMessage;
     
     //CHECK PERMISSIONS
     var currentUser = UserService.GetCurrentUsername();
     var canEdit = await UserService.CanEditAsync(currentUser);
     var role = await UserService.GetUserRoleAsync(currentUser);
-    var canDelete = role == "Admin"; // Only Admins can delete
+    var canDelete = role == "Admin"; 
     
-    // Use a CSS-safe id for selectors (replace invalid chars)
-    var safeKey = Regex.Replace(item.ItemNo ?? string.Empty, "[^A-Za-z0-9_-]", "_");
+    // Use the ORIGINAL ItemNo for row ID (from Model, not from item.ItemNo after edit)
+    // This ensures the row ID remains stable even when validation fails with modified ItemNo
+    var originalItemNo = Model.OriginalItemNo ?? item.ItemNo ?? string.Empty;
+    var safeKey = Regex.Replace(originalItemNo, "[^A-Za-z0-9_-]", "_");
     var rowId = $"row-{safeKey}";
 }
 
 @if (!editing)
 {
-    <tr id="@rowId">
+    <tr id="@rowId" data-original-itemno="@item.ItemNo">
         <td class="text-end text-nowrap">
             @if (canEdit)
             {
@@ -44,52 +47,75 @@
             {
                 <!--  VIEWERS SEE READ-ONLY INDICATOR -->
                 <span class="badge bg-secondary">View Only</span>
-                    }
-                </td>
-                <td class="fw-semibold text-nowrap">@item.ItemNo</td>
-                <td>@item.PackingCode</td>
-                <td>@item.PrefixCode</td>
-                <td class="text-nowrap">@item.ContainerNumber</td>
-                <td class="text-end">@item.OutsideLength</td>
-                <td class="text-end">@item.OutsideWidth</td>
-                <td class="text-end">@item.OutsideHeight</td>
-                <td class="text-end">@item.CollapsedHeight</td>
-                <td class="text-end">@item.Weight</td>
-                <td class="text-end">@item.PackQuantity</td>
-                <td class="text-nowrap">@item.AlternateId</td>
-            </tr>
-        }
-        else
-        {
-            <tr id="@rowId">
-                <td class="text-end text-nowrap">
-                    @Html.AntiForgeryToken()
-                    <button class="btn btn-sm btn-outline-success"
-                            hx-post="@Url.Page("./Index", "SaveRow")"
-                            hx-target="#@rowId"
-                            hx-swap="outerHTML"
-                            hx-include="#@rowId input, #@rowId select, #@rowId textarea, #@rowId input[name='__RequestVerificationToken']">Save</button>
-                            <button class="btn btn-sm btn-outline-secondary"
-                            hx-get="@Url.Page("./Index", "EditRow", new { id = item.ItemNo, isEditing = false })"
-                            hx-target="#@rowId"
-                            hx-swap="outerHTML">Cancel</button>
-                        </td>
-                        <td class="fw-semibold text-nowrap">@item.ItemNo<input type="hidden" name="ItemNo" value="@item.ItemNo" /></td>
-                        <td>
-                            <input class="form-control form-control-sm" name="PackingCode" value="@item.PackingCode" />
-                        </td>
-                        <td>
-                            <input class="form-control form-control-sm" name="PrefixCode" value="@item.PrefixCode" />
-                        </td>
-                        <td>
-                            <input class="form-control form-control-sm" name="ContainerNumber" value="@item.ContainerNumber" />
-                        </td>
-                        <td><input class="form-control form-control-sm" name="OutsideLength" value="@item.OutsideLength" /></td>
-                        <td><input class="form-control form-control-sm" name="OutsideWidth" value="@item.OutsideWidth" /></td>
-                        <td><input class="form-control form-control-sm" name="OutsideHeight" value="@item.OutsideHeight" /></td>
-                        <td><input class="form-control form-control-sm" name="CollapsedHeight" value="@item.CollapsedHeight" /></td>
-                        <td><input class="form-control form-control-sm" name="Weight" value="@item.Weight" /></td>
-                        <td><input class="form-control form-control-sm" name="PackQuantity" value="@item.PackQuantity" /></td>
-                        <td><input class="form-control form-control-sm" name="AlternateId" value="@item.AlternateId" /></td>
-            </tr>
-        }
+            }
+        </td>
+        <td class="fw-semibold text-nowrap">@item.ItemNo</td>
+        <td>@item.PackingCode</td>
+        <td>@item.PrefixCode</td>
+        <td class="text-nowrap">@item.ContainerNumber</td>
+        <td class="text-end">@item.OutsideLength</td>
+        <td class="text-end">@item.OutsideWidth</td>
+        <td class="text-end">@item.OutsideHeight</td>
+        <td class="text-end">@item.CollapsedHeight</td>
+        <td class="text-end">@item.Weight</td>
+        <td class="text-end">@item.PackQuantity</td>
+        <td class="text-nowrap">@item.AlternateId</td>
+    </tr>
+}
+else
+{
+    <!-- KEEP THE SAME rowId from view mode - use OriginalItemNo to ensure stability -->
+    <tr id="@rowId">
+        <td class="text-end text-nowrap">
+            @Html.AntiForgeryToken()
+            <!-- Store the ORIGINAL ItemNo in a hidden field for Cancel functionality -->
+            <input type="hidden" id="@(rowId)_originalId" value="@originalItemNo" />
+            
+            <button class="btn btn-sm btn-outline-success"
+                    hx-post="@Url.Page("./Index", "SaveRow")"
+                    hx-target="#@rowId"
+                    hx-swap="outerHTML"
+                    hx-include="#@rowId input, #@rowId select, #@rowId textarea, #@rowId input[name='__RequestVerificationToken']">Save</button>
+            <button class="btn btn-sm btn-outline-secondary"
+                    hx-get="@Url.Page("./Index", "CancelEdit")"
+                    hx-target="#@rowId"
+                    hx-swap="outerHTML"
+                    hx-vals='js:{originalId: document.getElementById("@(rowId)_originalId").value}'>Cancel</button>
+        </td>
+        
+        <!-- EDITABLE ItemNo with Original stored as hidden field -->
+        <td class="fw-semibold text-nowrap">
+            <input class="form-control form-control-sm @(!string.IsNullOrEmpty(errorMessage) ? "is-invalid" : "")" 
+                   name="ItemNo" 
+                   value="@item.ItemNo" 
+                   maxlength="15"
+                   required
+                   placeholder="YPT-2415-07" 
+                   title="Format: YPT-2415-07, YPB-4845-34, YPC-10006, YPP-48x45" />
+            <input type="hidden" name="OriginalItemNo" value="@originalItemNo" />
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="invalid-feedback d-block">
+                    <strong>@errorMessage</strong>
+                </div>
+            }
+        </td>
+        
+        <td>
+            <input class="form-control form-control-sm" name="PackingCode" value="@item.PackingCode" maxlength="15" />
+        </td>
+        <td>
+            <input class="form-control form-control-sm" name="PrefixCode" value="@item.PrefixCode" maxlength="15" />
+        </td>
+        <td>
+            <input class="form-control form-control-sm" name="ContainerNumber" value="@item.ContainerNumber" maxlength="15" />
+        </td>
+        <td><input class="form-control form-control-sm" name="OutsideLength" value="@item.OutsideLength" type="number" step="0.01" /></td>
+        <td><input class="form-control form-control-sm" name="OutsideWidth" value="@item.OutsideWidth" type="number" step="0.01" /></td>
+        <td><input class="form-control form-control-sm" name="OutsideHeight" value="@item.OutsideHeight" type="number" step="0.01" /></td>
+        <td><input class="form-control form-control-sm" name="CollapsedHeight" value="@item.CollapsedHeight" type="number" step="0.01" /></td>
+        <td><input class="form-control form-control-sm" name="Weight" value="@item.Weight" type="number" step="0.01" /></td>
+        <td><input class="form-control form-control-sm" name="PackQuantity" value="@item.PackQuantity" type="number" min="0" /></td>
+        <td><input class="form-control form-control-sm" name="AlternateId" value="@item.AlternateId" maxlength="15" /></td>
+    </tr>
+}

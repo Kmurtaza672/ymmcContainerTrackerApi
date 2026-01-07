@@ -7,14 +7,12 @@ namespace YmmcContainerTrackerApi.Pages
     public class IndexModel : PageModel
     {
         private readonly IUserService _userService;
-        private readonly ILdapService _ldapService; 
-        private readonly ILogger<IndexModel> _logger;
+        private readonly ILdapService _ldapService;
 
-        public IndexModel(IUserService userService, ILdapService ldapService, ILogger<IndexModel> logger)
+        public IndexModel(IUserService userService, ILdapService ldapService)
         {
             _userService = userService;
-            _ldapService = ldapService; 
-            _logger = logger;
+            _ldapService = ldapService;
         }
 
         // User Information
@@ -22,8 +20,8 @@ namespace YmmcContainerTrackerApi.Pages
         public string UserIdentity { get; set; } = string.Empty;
         public string UserRole { get; set; } = string.Empty;
         public bool HasAccess { get; set; }
-        public bool HasAdAccess { get; set; } 
-        public string DenialReason { get; set; } = string.Empty; 
+        public bool HasAdAccess { get; set; }
+        public string DenialReason { get; set; } = string.Empty;
 
         // Permissions
         public bool CanViewContainers { get; set; }
@@ -60,20 +58,15 @@ namespace YmmcContainerTrackerApi.Pages
             UserIdentity = _userService.GetCurrentUserIdentity();
             CurrentUser = _userService.GetCurrentUsername();
 
-            _logger.LogInformation("🔍 User attempted access: {UserIdentity}", UserIdentity);
-
             //  STEP 1: Check AD group membership (if configured)
             HasAdAccess = _ldapService.ValidateUserAccess(CurrentUser);
 
             if (!HasAdAccess)
             {
                 DenialReason = "You are not a member of the required Active Directory security group.";
-                _logger.LogWarning("❌ AD access DENIED for {CurrentUser} - not in required AD group", CurrentUser);
                 HasAccess = false;
                 return;
             }
-
-            _logger.LogInformation("✅ AD access granted for {CurrentUser}", CurrentUser);
 
             //  STEP 2: Check UserRoles database
             UserRole = await _userService.GetUserRoleAsync(CurrentUser);
@@ -82,7 +75,6 @@ namespace YmmcContainerTrackerApi.Pages
             if (!HasAccess)
             {
                 DenialReason = "You are not registered in the application's user database.";
-                _logger.LogWarning("❌ Database access DENIED for {CurrentUser} - not in UserRoles table", CurrentUser);
                 return;
             }
 
@@ -92,8 +84,6 @@ namespace YmmcContainerTrackerApi.Pages
             CanAccessMaintenance = UserRole is "Admin" or "Editor";
             CanAccessReports = true;
 
-            _logger.LogInformation("✅ Full access GRANTED to {CurrentUser} with role: {UserRole}", 
-                CurrentUser, UserRole);
         }
     }
 }

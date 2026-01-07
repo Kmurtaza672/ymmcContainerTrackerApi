@@ -45,6 +45,28 @@ namespace YmmcContainerTrackerApi
 
             var app = builder.Build();
 
+            // AD connectivity check for prod
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("=== APPLICATION STARTUP -AD Configuration Check ===");
+
+            // Log which environment and config files are being used
+            logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
+            logger.LogInformation("Config files loaded: base settings + {Environment} settings (if exists)", builder.Environment.EnvironmentName);
+
+            var authEnabled = builder.Configuration.GetValue<bool>("Authentication:Enabled");
+            var domain = builder.Configuration.GetValue<string>("Authentication:LDAP:Domain");
+            var ldapPath = builder.Configuration.GetValue<string>("Authentication:LDAP:Path");
+            var requiredGroup = builder.Configuration.GetValue<string>("Authentication:RequiredAdGroup");
+
+            logger.LogInformation("Authentication Enabled: {AuthEnabled}", authEnabled);
+            logger.LogInformation("AD Domain: {Domain}", domain ?? "NULL");
+            logger.LogInformation("LDAP Path: {LdapPath}", ldapPath ?? "NULL");
+            logger.LogInformation("Required AD group: {Group}", requiredGroup ?? "NULL");
+            
+
+
+
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();

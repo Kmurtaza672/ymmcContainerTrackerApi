@@ -7,13 +7,15 @@ public partial class ReturnableContainers
     [Key]
     [Required(ErrorMessage = "Item No is required")]
     [StringLength(15, ErrorMessage = "Item No cannot exceed 15 characters")]
-    [RegularExpression(@"^[A-Z]{3}-\d{4}-\d{2}$",
-        ErrorMessage = "Item No must follow format: YPT-1207-05")]
+    [RegularExpression(@"^[A-Z]{3}-[A-Za-z0-9]+(?:[-xX][A-Za-z0-9]+)*$",
+        ErrorMessage = "Item No must start with 3 uppercase letters. Examples: YPT-2415-07, YPB-4845-34, YPC-10006, YPP-48x45")]
     public string ItemNo { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Packing Code is required")]
     [StringLength(15, ErrorMessage = "Packing Code cannot exceed 15 characters")]
     public string? PackingCode { get; set; }
 
+    [Required(ErrorMessage = "Prefix Code is required")]
     [StringLength(15, ErrorMessage = "Prefix Code cannot exceed 15 characters")]
     public string? PrefixCode { get; set; }
 

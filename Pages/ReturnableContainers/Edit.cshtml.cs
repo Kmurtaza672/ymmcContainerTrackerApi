@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -17,22 +18,22 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
         private readonly AppDbContext _context;
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
-        private readonly ILogger<EditModel> _logger;
 
         public EditModel(
             AppDbContext context,
             IUserService userService,
-            IAuditService auditService,
-            ILogger<EditModel> logger)
+            IAuditService auditService)
         {
             _context = context;
             _userService = userService;
             _auditService = auditService;
-            _logger = logger;
         }
 
         [BindProperty]
         public ReturnableContainers ReturnableContainers { get; set; } = default!;
+
+        [BindProperty]
+        public string OriginalItemNo { get; set; } = string.Empty;
 
         public async Task<IActionResult> OnGetAsync(string id)
         {
@@ -42,7 +43,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to access Edit page without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to edit containers.";
                 return RedirectToPage("./Index");
             }
@@ -57,7 +57,10 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 return NotFound();
             }
+            
             ReturnableContainers = returnablecontainers;
+            OriginalItemNo = returnablecontainers.ItemNo; // Store original for comparison
+            
             return Page();
         }
 
@@ -69,9 +72,60 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to POST edit without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to edit containers.";
                 return RedirectToPage("./Index");
+            }
+
+            // Validate BEFORE normalization to catch empty values early
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
+            {
+                ModelState.AddModelError("ReturnableContainers.ItemNo", "Item No is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PackingCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PackingCode", "Packing Code is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PrefixCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PrefixCode", "Prefix Code is required.");
+                return Page();
+            }
+
+            // Normalize standard fields (uppercase for consistency)
+            string Normalize(string? value)
+            {
+                var trimmed = (value ?? string.Empty).Trim();
+                if (trimmed.Length == 0) return string.Empty;
+                trimmed = Regex.Replace(trimmed, "\\s+", " ");
+                return trimmed.ToUpperInvariant();
+            }
+
+            // normalization for ItemNo only capitalize the prefix
+            string NormalizeItemNo(string? itemNo)
+            {
+                var trimmed = (itemNo ?? string.Empty).Trim();
+                if (trimmed.Length < 3) return trimmed;
+                
+                // Capitalize only the first 3 characters (prefix)
+                var prefix = trimmed.Substring(0, 3).ToUpperInvariant();
+                var rest = trimmed.Substring(3);
+                
+                return prefix + rest;
+            }
+
+            ReturnableContainers.ItemNo = NormalizeItemNo(ReturnableContainers.ItemNo);
+            ReturnableContainers.PackingCode = Normalize(ReturnableContainers.PackingCode);
+            ReturnableContainers.PrefixCode = Normalize(ReturnableContainers.PrefixCode);
+
+            // Re-validate normalized ItemNo
+            ModelState.Remove("ReturnableContainers.ItemNo");
+            if (!TryValidateModel(ReturnableContainers, "ReturnableContainers"))
+            {
+                return Page();
             }
 
             if (!ModelState.IsValid)
@@ -79,36 +133,76 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                 return Page();
             }
 
+            // Check if ItemNo was changed
+            bool itemNoChanged = !string.Equals(OriginalItemNo, ReturnableContainers.ItemNo, StringComparison.OrdinalIgnoreCase);
+
+            if (itemNoChanged)
+            {
+                // Check if new ItemNo already exists (prevent duplicates)
+                var exists = await _context.ReturnableContainers
+                    .AsNoTracking()
+                    .AnyAsync(rc => rc.ItemNo.ToUpper() == ReturnableContainers.ItemNo.ToUpper());
+
+                if (exists)
+                {
+                    ModelState.AddModelError("ReturnableContainers.ItemNo", "This Item No already exists.");
+                    return Page();
+                }
+            }
+
             // Get the old values BEFORE updating
             var oldContainer = await _context.ReturnableContainers
                 .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.ItemNo == ReturnableContainers.ItemNo);
+                .FirstOrDefaultAsync(m => m.ItemNo == OriginalItemNo);
 
             if (oldContainer == null)
             {
-                return NotFound();
+                TempData["ErrorMessage"] = "The container was not found. It may have been deleted.";
+                return RedirectToPage("./Index");
             }
 
             // START TRANSACTION - Ensure atomic operation
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                _context.Attach(ReturnableContainers).State = EntityState.Modified;
-                await _context.SaveChangesAsync();
+                if (itemNoChanged)
+                {
+                    // ItemNo changed - We need to DELETE old record and CREATE new one
+                    // because ItemNo is the primary key
+                    
+                    // 1. Remove old container
+                    _context.ReturnableContainers.Remove(oldContainer);
+                    await _context.SaveChangesAsync();
 
-                // Log the UPDATE action with old and new values
-                await _auditService.LogUpdateAsync(
-                    ReturnableContainers.ItemNo,
-                    oldContainer,
-                    ReturnableContainers,
-                    currentUser);
+                    // 2. Add new container with new ItemNo
+                    _context.ReturnableContainers.Add(ReturnableContainers);
+                    await _context.SaveChangesAsync();
+
+                    // 3. Log the ItemNo change as an UPDATE with special note
+                    await _auditService.LogUpdateAsync(
+                        ReturnableContainers.ItemNo,
+                        oldContainer,
+                        ReturnableContainers,
+                        currentUser);
+                }
+                else
+                {
+                    // ItemNo unchanged - Normal update
+                    _context.Attach(ReturnableContainers).State = EntityState.Modified;
+                    await _context.SaveChangesAsync();
+
+                    // Log the UPDATE action
+                    await _auditService.LogUpdateAsync(
+                        ReturnableContainers.ItemNo,
+                        oldContainer,
+                        ReturnableContainers,
+                        currentUser);
+                }
 
                 // COMMIT - Both update and audit log succeed together
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("SUCCESS: User {CurrentUser} edited container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
                 TempData["SuccessMessage"] = $"Container {ReturnableContainers.ItemNo} successfully updated.";
-
                 return RedirectToPage("./Index");
             }
             catch (DbUpdateConcurrencyException ex)
@@ -127,7 +221,7 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
                     }
 
                     TempData["ErrorMessage"] = "This container was modified by another user. Please refresh and try again.";
-                    return RedirectToPage("./Edit", new { id = ReturnableContainers.ItemNo });
+                    return RedirectToPage("./Edit", new { id = OriginalItemNo });
                 }
 
                 throw;
@@ -136,15 +230,9 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 // ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "ERROR: Failed to edit container {ItemNo}", ReturnableContainers.ItemNo);
                 TempData["ErrorMessage"] = "An error occurred while updating the container. Please try again.";
                 return Page();
             }
-        }
-
-        private bool ReturnableContainersExists(string id)
-        {
-            return _context.ReturnableContainers.Any(e => e.ItemNo == id);
         }
     }
 }

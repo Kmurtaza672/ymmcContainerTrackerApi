@@ -18,14 +18,14 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
         private readonly AppDbContext _context;
         private readonly IUserService _userService;
         private readonly IAuditService _auditService;
-        private readonly ILogger<CreateModel> _logger;
+        
 
-        public CreateModel(AppDbContext context, IUserService userService, IAuditService auditService, ILogger<CreateModel> logger)
+        public CreateModel(AppDbContext context, IUserService userService, IAuditService auditService)
         {
             _context = context;
             _userService = userService;
             _auditService = auditService;
-            _logger = logger;
+            
         }
 
         public async Task<IActionResult> OnGetAsync()
@@ -36,7 +36,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to access Create page without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to create containers.";
                 return RedirectToPage("./Index");
             }
@@ -55,67 +54,72 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
             if (!canEdit)
             {
-                _logger.LogWarning("BLOCKED: User {CurrentUser} attempted to POST create without permission", currentUser);
                 TempData["ErrorMessage"] = "You do not have permission to create containers.";
                 return RedirectToPage("./Index");
             }
 
-            // Normalize key fields before validation
-            string Normalize(string? s)
+            // Normalize uppercase
+            string Normalize(string? value)
             {
-                var trimmed = (s ?? string.Empty).Trim();
+                var trimmed = (value ?? string.Empty).Trim();
                 if (trimmed.Length == 0) return string.Empty;
-                // collapse internal whitespace to single space
                 trimmed = Regex.Replace(trimmed, "\\s+", " ");
-                // uppercase for consistency
                 return trimmed.ToUpperInvariant();
             }
 
-            ReturnableContainers.ItemNo = Normalize(ReturnableContainers.ItemNo);
+            // only capitalize the prefix
+            string NormalizeItemNo(string? itemNo)
+            {
+                var trimmed = (itemNo ?? string.Empty).Trim();
+                if (trimmed.Length < 3) return trimmed;
+                
+                // Capitalize only the prefix
+                var prefix = trimmed.Substring(0, 3).ToUpperInvariant();
+                var rest = trimmed.Substring(3);
+                
+                return prefix + rest;
+            }
+
+            // Validate BEFORE normalization to catch empty values early
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
+            {
+                ModelState.AddModelError("ReturnableContainers.ItemNo", "Item No is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PackingCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PackingCode", "Packing Code is required.");
+                return Page();
+            }
+
+            if (string.IsNullOrWhiteSpace(ReturnableContainers.PrefixCode))
+            {
+                ModelState.AddModelError("ReturnableContainers.PrefixCode", "Prefix Code is required.");
+                return Page();
+            }
+
+            // Now normalize the validated inputs
+            ReturnableContainers.ItemNo = NormalizeItemNo(ReturnableContainers.ItemNo);
             ReturnableContainers.PackingCode = Normalize(ReturnableContainers.PackingCode);
             ReturnableContainers.PrefixCode = Normalize(ReturnableContainers.PrefixCode);
 
-            if (string.IsNullOrWhiteSpace(ReturnableContainers.ItemNo))
-                ModelState.AddModelError("ReturnableContainers.ItemNo", "Please add the column [Item_No].");
-            if (string.IsNullOrWhiteSpace(ReturnableContainers.PackingCode))
-                ModelState.AddModelError("ReturnableContainers.PackingCode", "Please add the column [Packing_Code].");
-            if (string.IsNullOrWhiteSpace(ReturnableContainers.PrefixCode))
-                ModelState.AddModelError("ReturnableContainers.PrefixCode", "Please add the column [Prefix_Code].");
+            // Re-validate normalized ItemNo
+            ModelState.Remove("ReturnableContainers.ItemNo");
+            if (!TryValidateModel(ReturnableContainers, "ReturnableContainers"))
+            {
+                return Page();
+            }
 
             if (!ModelState.IsValid)
             {
                 return Page();
             }
 
-            // Extract digits from ItemNo
-            string ExtractDigits(string input)
-            {
-                return new string(input.Where(char.IsDigit).ToArray());
-            }
-
-            var newItemDigits = ExtractDigits(ReturnableContainers.ItemNo);
-
-            // Check if digits already exist in any ItemNo (excluding current record during edit)
-            var allContainers = await _context.ReturnableContainers
-                .AsNoTracking()
-                .Select(rc => rc.ItemNo)
-                .ToListAsync();
-
-            var duplicateDigits = allContainers
-                .Select(itemNo => new { ItemNo = itemNo, Digits = ExtractDigits(itemNo) })
-                .FirstOrDefault(x => x.Digits == newItemDigits);
-
-            if (duplicateDigits != null)
-            {
-                ModelState.AddModelError("ReturnableContainers.ItemNo", 
-                    $"The numeric part '{newItemDigits}' already exists in Item No '{duplicateDigits.ItemNo}'.");
-                return Page();
-            }
-
-            // Check for exact duplicates (by normalized ItemNo) - Keep existing check
+            // Check for duplicates (case-insensitive comparison for safety)
             var exists = await _context.ReturnableContainers
                 .AsNoTracking()
-                .AnyAsync(rc => rc.ItemNo == ReturnableContainers.ItemNo);
+                .AnyAsync(rc => rc.ItemNo.ToUpper() == ReturnableContainers.ItemNo.ToUpper());
 
             if (exists)
             {
@@ -136,8 +140,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
 
                 // COMMIT - Both create and audit log succeed together
                 await transaction.CommitAsync();
-
-                _logger.LogInformation("SUCCESS: User {CurrentUser} created new container {ItemNo}", currentUser, ReturnableContainers.ItemNo);
                 TempData["SuccessMessage"] = $"Container {ReturnableContainers.ItemNo} successfully created.";
 
                 return RedirectToPage("./Index");
@@ -146,7 +148,6 @@ namespace YmmcContainerTrackerApi.Pages_ReturnableContainers
             {
                 // ROLLBACK on any error - Nothing gets saved
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "ERROR: Failed to create container {ItemNo}", ReturnableContainers.ItemNo);
                 TempData["ErrorMessage"] = "An error occurred while creating the container. Please try again.";
                 return Page();
             }

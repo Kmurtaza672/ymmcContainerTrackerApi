@@ -142,8 +142,10 @@ public class AuditService : IAuditService
 
     public async Task<List<ContainerAuditLog>> GetContainerHistoryAsync(string itemNo)
     {
+        // Support case-insensitive and partial matching
+        var upperItemNo = itemNo.Trim().ToUpper();
         return await _context.ContainerAuditLogs
-            .Where(log => log.ItemNo == itemNo)
+            .Where(log => log.ItemNo.ToUpper().Contains(upperItemNo))
             .OrderByDescending(log => log.Timestamp)
             .ToListAsync();
     }
@@ -157,12 +159,18 @@ public class AuditService : IAuditService
     {
         var query = _context.ContainerAuditLogs.AsQueryable();
 
+        // Support case-insensitive and partial matching for username
         if (!string.IsNullOrWhiteSpace(username))
-            query = query.Where(log => log.Username == username);
+        {
+            var upperUsername = username.Trim().ToUpper();
+            query = query.Where(log => log.Username.ToUpper().Contains(upperUsername));
+        }
 
+        // Exact match for action (dropdown selection)
         if (!string.IsNullOrWhiteSpace(action))
             query = query.Where(log => log.Action == action);
 
+        // Date range filters
         if (startDate.HasValue)
             query = query.Where(log => log.Timestamp >= startDate.Value);
 
